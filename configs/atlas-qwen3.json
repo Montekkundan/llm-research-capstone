@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "run_id": "atlas-qwen3",
+  "seed": 7,
+  "dataset": {"path": "data/original_toy_corpus.txt", "train_fraction": 0.75},
+  "architecture": {"family": "atlas", "preset": "qwen3_dense", "context": 32},
+  "training": {"steps": 80, "batch_size": 4, "learning_rate": 0.003},
+  "evaluation": {"metric": "bits_per_byte"}
+}

@@ -6,13 +6,19 @@ The JSON config names one `run_id`, integer `seed`, corpus path, document-level 
 
 The CLI comparator allows exactly one scientific field to change: `architecture.variant` or `architecture.alpha`. A different `run_id` is required so artifacts cannot overwrite each other. It is a *guardrail*, not proof of a fair LLM ablation. For 92–93, additionally preregister the question; match data, tokenizer, evaluation, token/compute or wall-clock budget as appropriate; disclose parameter count and active FLOPs; use multiple seeds; report spread and failure modes. Do not change the architecture and budget simultaneously while attributing a difference to architecture alone.
 
-## Future transformer adapter contract (specification only)
+## Implemented v2 causal Transformer contract
 
-A replacement must preserve these external interfaces. No such adapter ships in this starter.
+`configs/tiny-transformer.json` fixes corpus/split, model width, attention heads, depth, context, optimizer, batch size, learning rate, and total steps. `capstone.transformer.execute` trains the byte-level decoder on CPU. Its upper-triangular attention mask prevents access to future positions; examples never span documents. The checkpoint includes model/AdamW state and step. A deterministic step-indexed batch generator makes interruption/resume weight-exact on the tested CPU/PyTorch environment. Resume rejects changed config, corpus, resolved architecture, or implementation source hashes. Held-out loss is summed over every document byte; each 32-byte chunk begins a new context. The depth-swap config changes only `architecture.layers`, but **not** parameter count or measured FLOPs. The comparison is a mechanics exercise, not a fair scaling claim.
+
+The optional atlas backend accepts five validated tiny text-path presets without changing the data, optimizer, evaluation, checkpoint, or resume functions. It changes the token vocabulary to 258 for byte inputs and scores only the 256 byte outputs. The resolved spec and its primary `source_url`/`source_revision` are embedded in the manifest. The included Qwen3 dense and DeepSeek-V3-style configs are short CPU smoke runs; exact resume parity and finite held-out metrics are tested for both. Their config-only preset comparison is not matched for parameter count, active FLOPs, or convergence.
+
+## Future larger-model adapter contract (specification only)
+
+A larger replacement must preserve these external interfaces. The v2 CPU decoder and optional atlas preset adapter implement part of this contract; no GPU or production-scale adapter ships here.
 
 1. `prepare_data(source_manifest, tokenizer_manifest) -> train/eval iterators`: document split and dedup happen before packing; save hashes and license/provenance. No train text enters evaluation by construction.
 2. `build_model(architecture_config) -> model`: declare family, exact dimensions, attention/position/FFN/routing choices, weight tying, parameter count, active parameter count, context length, and expected KV or recurrent state layout. Cite the primary report and list deviations.
-3. `train(model, train_iterator, runtime_config, resume_manifest) -> checkpoint`: record optimizer/scheduler, RNG, data cursor, precision, mesh, gradient accumulation, global step, tokens seen, measured memory/throughput, and interruption/restart parity. The current v1 runner has none of these.
+3. `train(model, train_iterator, runtime_config, resume_manifest) -> checkpoint`: record optimizer/scheduler, RNG, data cursor, precision, mesh, gradient accumulation, global step, tokens seen, measured memory/throughput, and interruption/restart parity. The v2 CPU decoder records optimizer and step and proves local resume parity, but does not implement GPU mesh, precision variants, or throughput measurement.
 4. `evaluate(checkpoint, frozen_eval_manifest) -> report`: use the same tokenizer, held-out records, metrics and generation settings across families; add quality rubrics appropriate to the model, not only loss. Never compare a base model against a chat-tuned model without marking the difference.
 5. `export(checkpoint) -> weights + config + tokenizer + manifest`: round-trip reload, hashes, exact model family/version, and state-layout version are required. A failed or incompatible reload must be explicit.
 
@@ -20,4 +26,4 @@ For DeepSeek-V3-style work, use [the technical report](https://arxiv.org/abs/241
 
 ## Stop conditions
 
-The provided tests validate only the toy harness. Do not mark lectures 90–96 implementation-complete from these tests or from the toy `comparison.json`. GPU timing, distributed correctness, end-to-end training, post-training, and broad evaluation are outstanding until independently measured.
+The tests validate the tiny CPU Transformer, five atlas forward/backward paths, two atlas train/resume paths, and n-gram harness. Do not mark lectures 90–96 implementation-complete from these checks. GPU timing, distributed correctness, post-training, matched-budget family comparisons, and broad evaluation are outstanding until independently measured.

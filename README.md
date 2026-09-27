@@ -1,13 +1,61 @@
-# Research capstone starter (lectures 90–96)
+# Research capstone experiments (lectures 90–96)
 
-This is a **CPU-only experiment-contract starter**, not a pretrained model, LLM trainer, GPU benchmark, DeepSeek-V3 reproduction, or assistant. It gives students a small, executable way to practice provenance, held-out evaluation, one-variable ablations, report writing, and architecture-swap discipline before attempting the much larger capstones. The only implemented learners are Laplace-smoothed byte unigram and bigram models on a 20-line original teaching corpus. Do not interpret their scores as language-model research results.
+This repository pairs a standard-library byte n-gram baseline with **tiny trained causal models**. The CPU trainer can use its built-in dense Transformer or any of five optional [model-atlas](https://github.com/Montekkundan/llm-model-atlas) text-path presets under the same byte data, optimizer, checkpoint/resume, and held-out evaluation loop. These are executable teaching experiments on an original 20-line corpus, not pretrained LLMs, GPU benchmarks, published-model reproductions, or assistants.
 
-## Run the toy experiment
+## Train and compare the Transformer
 
-Python 3.10+ and its standard library are sufficient. From the repository root:
+Use Python 3.10+ and install the PyTorch version in `requirements.txt` in a virtual environment (verified with 2.9.1). From the repository root:
 
 ```sh
 python3 -m unittest discover -s tests -v
+python3 -m capstone.transformer_run --config configs/tiny-transformer.json
+python3 -m capstone.transformer_run --config configs/tiny-transformer-depth-swap.json
+```
+
+To make an interrupted run and resume it with the **same config**:
+
+```sh
+python3 -m capstone.transformer_run --config configs/tiny-transformer.json --output-root /tmp/capstone-resume --stop-after 13
+python3 -m capstone.transformer_run --config configs/tiny-transformer.json --output-root /tmp/capstone-resume --resume
+```
+
+To enforce and run the one-field depth comparison in a fresh output directory:
+
+```sh
+python3 -m capstone.transformer_run --config configs/tiny-transformer.json --compare-config configs/tiny-transformer-depth-swap.json --vary architecture.layers --output-root /tmp/capstone-depth-study
+```
+
+The runner refuses to overwrite an existing checkpoint without `--resume`. Each run writes `config.json`, `checkpoint.pt`, `manifest.json`, and `report.json`; a comparison also writes `comparison.json`. The manifest records the raw corpus hash, disjoint document indices, config, implementation and checkpoint hashes, step, training tokens seen, parameter count, and PyTorch version. The 32-byte chunks reset attention context to BOS at every document and chunk boundary; each byte is scored once. `held_out.bits_per_byte` is the summed next-byte cross-entropy divided by held-out bytes and by ln(2). `perplexity_per_byte = 2 ** bits_per_byte`.
+
+The example 40-step local run on PyTorch 2.9.1 gave 4.1141 held-out bits/byte across 270 bytes for one layer and 4.0879 for two layers. This is one seed, one tiny split, and a parameter-count-changing ablation: its 0.0262-bit difference is **not** a general architecture finding. Training loss and a real evaluation set would need many more independent documents and seeds. The n-gram baseline has a different context protocol; its score is not a matched-budget Transformer comparison.
+
+## Swap model families without changing the trainer
+
+Clone `llm-model-atlas` next to this repository and install it into the same virtual environment:
+
+```sh
+pip install -e ../llm-model-atlas
+python3 -m unittest discover -s tests -v
+python3 -m capstone.transformer_run --config configs/atlas-qwen3.json
+python3 -m capstone.transformer_run --config configs/atlas-deepseek-v3.json
+```
+
+Set `architecture.preset` to `olmo2`, `gemma3`, `mistral_small31`, `qwen3_dense`, or `deepseek_v3_style` to use another atlas text path. The adapter expands each preset's input vocabulary to 258 IDs (256 bytes, BOS, PAD), excludes BOS/PAD from output normalization, and preserves the preset's architecture choices. `manifest.json` records the resolved preset, its source reference, and hashes of that spec and the implementation source files; resume rejects either changing. The atlas repository's own README and tests document each preset's omissions. The included Qwen3 and DeepSeek-style configs both use 80 steps; each runs in seconds on the verified CPU environment. Their scores are **not comparable evidence of model-family quality**: parameter counts, routing compute, and optimization needs differ substantially.
+
+The same guarded comparison CLI can verify that only the preset name changed while keeping corpus, split, seed, step count, batch size, context, and learning rate fixed:
+
+```sh
+python3 -m capstone.transformer_run --config configs/atlas-qwen3.json --compare-config configs/atlas-deepseek-v3.json --vary architecture.preset --output-root /tmp/capstone-atlas-study
+```
+
+This is a configuration check, not a matched-compute study. A defensible comparison must additionally match or disclose parameters, active FLOPs, training tokens, optimizer tuning, multiple seeds, and hardware measurements.
+
+## Run the n-gram baseline
+
+Python 3.10+ and its standard library are sufficient for this baseline:
+
+```sh
+python3 -m unittest discover -s tests -p test_capstone.py -v
 python3 -m capstone.run --config configs/baseline.json
 python3 -m capstone.compare --base configs/baseline.json --candidate configs/bigram-swap.json --vary architecture.variant
 ```
@@ -21,12 +69,12 @@ The locally verified example on Python 3.14.7 yields 4.2982 bits/byte for the un
 ## What students extend
 
 - [Lesson map](LESSON_MAP.md) links each of 90–96 to a deliverable and a verification gate.
-- [Experiment contracts](CONTRACTS.md) define a single-factor ablation and the interface a real architecture adapter must eventually satisfy. These are requirements, **not implemented GPU or transformer modules**.
+- [Experiment contracts](CONTRACTS.md) distinguish the implemented CPU family swap from the still-unimplemented GPU, broad-evaluation, and assistant stages.
 - `configs/baseline.json` is the v1 run manifest; `configs/bigram-swap.json` changes only `run_id` and `architecture.variant`. The comparator rejects a simultaneous data, split, seed, smoothing, or metric change.
 - The bundled corpus is intentionally original and tiny. For a real run, use a licensed dataset, document its provenance and exclusions, split by a leakage-safe unit, and independently evaluate the resulting checkpoint.
 
-The full tokenizer → pretraining → post-training → evaluation → inference path is illustrated in [Andrej Karpathy's nanochat repository](https://github.com/karpathy/nanochat), which is a reference for a *future* student implementation, not a dependency of this starter. [Hoffmann et al., *Training Compute-Optimal Large Language Models* (2022)](https://arxiv.org/abs/2203.15556) motivates reporting model, token, and compute budgets together before a scaling comparison. [Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints* (2023)](https://arxiv.org/abs/2305.13245) is a primary source for a future attention-family swap. [DeepSeek-AI et al., *DeepSeek-V3 Technical Report* (2024)](https://arxiv.org/abs/2412.19437) is the primary structural source for the optional V3-style capstone. A tiny byte n-gram contains none of GQA, MLA, MoE, SFT, or distributed training.
+The causal attention mechanism traces to [Vaswani et al., *Attention Is All You Need* (2017)](https://arxiv.org/abs/1706.03762); the built-in path uses PyTorch's [TransformerEncoderLayer](https://docs.pytorch.org/docs/stable/generated/torch.nn.TransformerEncoderLayer.html) with an explicit causal mask as a compact decoder-only implementation, not a reproduction of the paper's encoder-decoder training. The atlas presets draw their structural choices from primary model reports or official configurations recorded in each resolved manifest; [Ainslie et al., *GQA* (2023)](https://arxiv.org/abs/2305.13245) and the [DeepSeek-V3 Technical Report (2024)](https://arxiv.org/abs/2412.19437) provide background for two of the mechanisms. The full tokenizer → pretraining → post-training → evaluation → inference path is illustrated in [Andrej Karpathy's nanochat repository](https://github.com/karpathy/nanochat), a reference for a later larger project, not a dependency here. [Hoffmann et al., *Chinchilla* (2022)](https://arxiv.org/abs/2203.15556) motivates a proper model/data/compute ledger.
 
 ## Evidence boundary
 
-The tests prove local determinism, document split separation, config rejection, and report generation. They do **not** prove a capable model, equal-compute comparison, GPU correctness, training recovery, SFT quality, or paper fidelity. Each later extension needs its own parity tests, hardware profile, budget ledger, seeds, and disclosed differences from its cited architecture.
+The tests prove local causality, exact interruption/resume parity for the built-in, Qwen3-dense, and DeepSeek-style paths on one CPU/PyTorch environment, document split separation, config rejection, and finite held-out metrics. They do **not** prove a capable model, equal-compute comparison, GPU correctness, SFT quality, or full paper fidelity. The atlas paths omit inference caches, full published-model dimensions, and other details documented there. Each later extension needs parity tests, a hardware profile, budget ledger, seeds, and disclosed differences from its cited architecture.
