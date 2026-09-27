@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "run_id": "toy-unigram",
+  "seed": 7,
+  "dataset": {
+    "path": "data/original_toy_corpus.txt",
+    "train_fraction": 0.75
+  },
+  "architecture": {
+    "family": "byte-ngram",
+    "variant": "unigram",
+    "alpha": 0.5
+  },
+  "evaluation": {
+    "metric": "bits_per_byte"
+  }
+}

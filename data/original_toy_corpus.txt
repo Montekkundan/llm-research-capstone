@@ -1,0 +1,20 @@
+small circuits count tokens before a model can learn
+the model sees bytes and predicts the next byte
+research begins with a question and a measured baseline
+one architecture changes while the dataset stays fixed
+held out documents reveal errors we cannot see in training
+a manifest records the source and the seed of an experiment
+attention joins a query with stored keys and values
+grouped queries can share a smaller set of key value heads
+an expert router sends tokens to selected feed forward paths
+tensor parallelism splits arithmetic across devices
+pipeline parallelism sends microbatches through stages
+context parallelism divides a long sequence across workers
+the checkpoint must name its weights and the data cursor
+compare models with the same budget and evaluation protocol
+an ablation should change one factor at a time
+repeat a result before claiming a design choice helped
+report uncertainty when the test collection is small
+trace every architectural claim back to its primary source
+a useful negative result still narrows the design space
+toy counts test mechanics but cannot train an assistant

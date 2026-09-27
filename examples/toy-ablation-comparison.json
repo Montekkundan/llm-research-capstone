@@ -1,0 +1,16 @@
+{
+  "base_bits_per_byte": 4.298166651442151,
+  "base_run": "toy-unigram",
+  "candidate_bits_per_byte": 5.224927459597371,
+  "candidate_minus_base_bits_per_byte": 0.9267608081552199,
+  "candidate_run": "toy-bigram",
+  "matched": [
+    "dataset bytes",
+    "document split and seed",
+    "evaluation metric",
+    "smoothing alpha"
+  ],
+  "scope": "toy byte-ngram ablation, not an LLM architecture claim",
+  "uncertainty": "One tiny held-out split; no interval or population-level conclusion.",
+  "varied_field": "architecture.variant"
+}
