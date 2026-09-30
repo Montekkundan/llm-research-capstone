@@ -55,6 +55,9 @@ def read_and_split(config: dict[str, Any]) -> tuple[list[bytes], list[bytes], di
     docs = [line.strip() for line in raw.splitlines() if line.strip()]
     if len(docs) < 4 or any(len(doc) == 0 for doc in docs):
         raise ValueError("at least four nonempty documents are required")
+    document_hashes = [sha256(doc) for doc in docs]
+    if len(set(document_hashes)) != len(document_hashes):
+        raise ValueError("duplicate document bytes must be removed before splitting")
     indices = list(range(len(docs)))
     random.Random(config["seed"]).shuffle(indices)
     train_count = max(1, min(len(docs) - 1, int(len(docs) * config["dataset"]["train_fraction"])))
@@ -63,6 +66,7 @@ def read_and_split(config: dict[str, Any]) -> tuple[list[bytes], list[bytes], di
         "path": config["dataset"]["path"],
         "sha256": sha256(raw),
         "document_count": len(docs),
+        "document_sha256": document_hashes,
         "train_document_indices": train_ids,
         "eval_document_indices": eval_ids,
         "split_unit": "line-document",

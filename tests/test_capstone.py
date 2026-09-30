@@ -3,6 +3,7 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from capstone.compare import assert_one_variable
 from capstone.core import ROOT, ByteNgram, evaluate, execute, load_config, read_and_split
@@ -22,6 +23,18 @@ class CapstoneContractTests(unittest.TestCase):
         self.assertEqual((train_a, eval_a, prov_a), (train_b, eval_b, prov_b))
         self.assertFalse(set(prov_a["train_document_indices"]) & set(prov_a["eval_document_indices"]))
         self.assertEqual(len(train_a) + len(eval_a), prov_a["document_count"])
+        train_hashes = {prov_a["document_sha256"][i] for i in prov_a["train_document_indices"]}
+        eval_hashes = {prov_a["document_sha256"][i] for i in prov_a["eval_document_indices"]}
+        self.assertFalse(train_hashes & eval_hashes)
+
+    def test_duplicate_content_is_rejected_before_split(self):
+        config = json.loads(json.dumps(self.base))
+        config["dataset"]["path"] = "documents.txt"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "documents.txt").write_bytes(b"same text\nother text\nthird text\nsame text\n")
+            with patch("capstone.core.ROOT", root), self.assertRaisesRegex(ValueError, "duplicate document bytes"):
+                read_and_split(config)
 
     def test_repeat_run_is_byte_identical_and_metric_finite(self):
         with tempfile.TemporaryDirectory() as one, tempfile.TemporaryDirectory() as two:
