@@ -36,6 +36,47 @@ class TransformerExperimentTests(unittest.TestCase):
         self.assertEqual(sum(len(target) for _, target in items), sum(map(len, heldout)))
         self.assertNotEqual(train, heldout)
 
+    def test_optional_split_seed_preserves_default_and_rejects_invalid_values(self):
+        config = load_config(self.config_path)
+        explicit = copy.deepcopy(config)
+        explicit["dataset"]["split_seed"] = config["seed"]
+        self.assertEqual(read_and_split(config), read_and_split(explicit))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(explicit))
+            self.assertEqual(load_config(path), explicit)
+            for invalid in (True, -1, "7"):
+                explicit["dataset"]["split_seed"] = invalid
+                path.write_text(json.dumps(explicit))
+                with self.subTest(split_seed=invalid), self.assertRaisesRegex(ValueError, "dataset.split_seed"):
+                    load_config(path)
+
+    def test_run_seed_changes_initialization_without_changing_frozen_split(self):
+        config = load_config(self.config_path)
+        config["dataset"]["split_seed"] = 23
+        reference = copy.deepcopy(config)
+        reference["seed"] = 23
+        del reference["dataset"]["split_seed"]
+        expected_split = read_and_split(reference)[2]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            runs = []
+            for seed in (7, 11):
+                config["seed"], config["run_id"] = seed, f"seed-{seed}"
+                path = root / f"seed-{seed}.json"
+                path.write_text(json.dumps(config))
+                initial = execute(path, output_root=root, stop_after=0)
+                checkpoint = torch.load(Path(initial["artifact_dir"]) / "checkpoint.pt", weights_only=True)
+                run = execute(path, output_root=root, resume=True, stop_after=2)
+                runs.append((run, checkpoint))
+            first, second = runs
+            self.assertEqual(first[0]["manifest"]["data"], second[0]["manifest"]["data"])
+            self.assertEqual(first[0]["manifest"]["data"], expected_split)
+            self.assertEqual(first[0]["manifest"]["data"]["split_seed"], 23)
+            self.assertEqual(first[0]["report"]["held_out"]["bytes"], second[0]["report"]["held_out"]["bytes"])
+            self.assertTrue(all(math.isfinite(run["report"]["held_out"]["bits_per_byte"]) for run, _ in runs))
+            self.assertTrue(any(not torch.equal(first[1]["model"][name], second[1]["model"][name]) for name in first[1]["model"]))
+
     def test_resume_matches_uninterrupted_weights_and_metrics(self):
         with tempfile.TemporaryDirectory() as whole_root, tempfile.TemporaryDirectory() as resumed_root:
             whole = execute(self.config_path, output_root=Path(whole_root))

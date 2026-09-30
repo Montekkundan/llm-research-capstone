@@ -84,8 +84,10 @@ def load_config(path: Path) -> dict[str, Any]:
     if type(config["seed"]) is not int or config["seed"] < 0:
         raise ValueError("seed must be a nonnegative integer")
     dataset = config["dataset"]
-    if set(dataset) != {"path", "train_fraction"} or not isinstance(dataset["path"], str) or not isinstance(dataset["train_fraction"], (int, float)) or not 0 < dataset["train_fraction"] < 1:
+    if set(dataset) - {"split_seed"} != {"path", "train_fraction"} or not isinstance(dataset["path"], str) or not isinstance(dataset["train_fraction"], (int, float)) or not 0 < dataset["train_fraction"] < 1:
         raise ValueError("dataset needs path and train_fraction in (0, 1)")
+    if "split_seed" in dataset and (type(dataset["split_seed"]) is not int or dataset["split_seed"] < 0):
+        raise ValueError("dataset.split_seed must be a nonnegative integer")
     arch = config["architecture"]
     if arch.get("family") == "atlas":
         if set(arch) != {"family", "preset", "context"} or arch["preset"] not in {

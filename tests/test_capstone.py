@@ -27,6 +27,20 @@ class CapstoneContractTests(unittest.TestCase):
         eval_hashes = {prov_a["document_sha256"][i] for i in prov_a["eval_document_indices"]}
         self.assertFalse(train_hashes & eval_hashes)
 
+    def test_optional_split_seed_preserves_default_and_rejects_invalid_values(self):
+        config = json.loads(json.dumps(self.base))
+        config["dataset"]["split_seed"] = config["seed"]
+        self.assertEqual(read_and_split(self.base), read_and_split(config))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps(config))
+            self.assertEqual(load_config(path), config)
+            for invalid in (True, -1, "7"):
+                config["dataset"]["split_seed"] = invalid
+                path.write_text(json.dumps(config))
+                with self.subTest(split_seed=invalid), self.assertRaisesRegex(ValueError, "dataset.split_seed"):
+                    load_config(path)
+
     def test_duplicate_content_is_rejected_before_split(self):
         config = json.loads(json.dumps(self.base))
         config["dataset"]["path"] = "documents.txt"

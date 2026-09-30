@@ -35,8 +35,10 @@ def load_config(path: Path) -> dict[str, Any]:
     if not isinstance(config["run_id"], str) or not config["run_id"].replace("-", "").replace("_", "").isalnum():
         raise ValueError("run_id must use letters, numbers, hyphens, or underscores")
     dataset, architecture, evaluation = config["dataset"], config["architecture"], config["evaluation"]
-    if set(dataset) != {"path", "train_fraction"} or not 0 < dataset["train_fraction"] < 1:
+    if set(dataset) - {"split_seed"} != {"path", "train_fraction"} or not 0 < dataset["train_fraction"] < 1:
         raise ValueError("dataset requires path and train_fraction between zero and one")
+    if "split_seed" in dataset and (type(dataset["split_seed"]) is not int or dataset["split_seed"] < 0):
+        raise ValueError("dataset.split_seed must be a nonnegative integer")
     if set(architecture) != {"family", "variant", "alpha"} or architecture["family"] != "byte-ngram":
         raise ValueError("only the byte-ngram teaching family is implemented")
     if architecture["variant"] not in {"unigram", "bigram"} or not isinstance(architecture["alpha"], (int, float)) or architecture["alpha"] <= 0:
@@ -59,7 +61,8 @@ def read_and_split(config: dict[str, Any]) -> tuple[list[bytes], list[bytes], di
     if len(set(document_hashes)) != len(document_hashes):
         raise ValueError("duplicate document bytes must be removed before splitting")
     indices = list(range(len(docs)))
-    random.Random(config["seed"]).shuffle(indices)
+    split_seed = config["dataset"].get("split_seed", config["seed"])
+    random.Random(split_seed).shuffle(indices)
     train_count = max(1, min(len(docs) - 1, int(len(docs) * config["dataset"]["train_fraction"])))
     train_ids, eval_ids = indices[:train_count], indices[train_count:]
     provenance = {
@@ -67,6 +70,7 @@ def read_and_split(config: dict[str, Any]) -> tuple[list[bytes], list[bytes], di
         "sha256": sha256(raw),
         "document_count": len(docs),
         "document_sha256": document_hashes,
+        "split_seed": split_seed,
         "train_document_indices": train_ids,
         "eval_document_indices": eval_ids,
         "split_unit": "line-document",

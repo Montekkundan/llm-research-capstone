@@ -37,6 +37,8 @@ The loader checks checkpoint bytes, configuration, corpus, resolved architecture
 
 The example 40-step local run on PyTorch 2.9.1 gave 4.1141 held-out bits/byte across 270 bytes for one layer and 4.0879 for two layers. This is one seed, one tiny split, and a parameter-count-changing ablation: its 0.0262-bit difference is **not** a general architecture finding. Training loss and a real evaluation set would need many more independent documents and seeds. The n-gram baseline has a different context protocol; its score is not a matched-budget Transformer comparison.
 
+For a same-data seed study, set `dataset.split_seed` explicitly, for example `"dataset": {"path": "data/original_toy_corpus.txt", "train_fraction": 0.75, "split_seed": 7}`. Hold that value fixed while varying top-level `seed` and `run_id`; the run seed controls model initialization and minibatch sampling. Both schemas accept a nonnegative integer split seed, and manifests record its resolved value. Omitting it keeps the original behavior of splitting with the run seed. Tests verify identical document assignments and held-out target counts across two different initializations, then resume both for two updates. This is a reproducibility check, not evidence of a multi-seed architecture benefit.
+
 ## Swap model families without changing the trainer
 
 Clone `llm-model-atlas` next to this repository and install it into the same virtual environment:
