@@ -31,7 +31,7 @@ class CapstoneContractTests(unittest.TestCase):
         config = json.loads(json.dumps(self.base))
         config["dataset"]["path"] = "documents.txt"
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             (root / "documents.txt").write_bytes(b"same text\nother text\nthird text\nsame text\n")
             with patch("capstone.core.ROOT", root), self.assertRaisesRegex(ValueError, "duplicate document bytes"):
                 read_and_split(config)

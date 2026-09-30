@@ -68,7 +68,7 @@ def build_model(architecture: dict[str, Any]) -> tuple[nn.Module, dict[str, Any]
 
 
 def implementation_hash(architecture: dict[str, Any]) -> str:
-    sources = [Path(__file__)]
+    sources = [Path(__file__), Path(__file__).with_name("core.py")]
     if architecture["family"] == "atlas":
         from atlas import model as atlas_model, spec as atlas_spec
         sources.extend((Path(atlas_model.__file__), Path(atlas_spec.__file__)))
