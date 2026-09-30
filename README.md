@@ -25,7 +25,15 @@ To enforce and run the one-field depth comparison in a fresh output directory:
 python3 -m capstone.transformer_run --config configs/tiny-transformer.json --compare-config configs/tiny-transformer-depth-swap.json --vary architecture.layers --output-root /tmp/capstone-depth-study
 ```
 
-The runner refuses to overwrite an existing checkpoint without `--resume`. Each run writes `config.json`, `checkpoint.pt`, `manifest.json`, and `report.json`; a comparison also writes `comparison.json`. The manifest records the raw corpus hash, disjoint document indices, config, implementation and checkpoint hashes, step, training tokens seen, parameter count, and PyTorch version. The 32-byte chunks reset attention context to BOS at every document and chunk boundary; each byte is scored once. `held_out.bits_per_byte` is the summed next-byte cross-entropy divided by held-out bytes and by ln(2). `perplexity_per_byte = 2 ** bits_per_byte`.
+The runner refuses to overwrite an existing checkpoint without `--resume`. Each run writes `config.json`, `checkpoint.pt`, `manifest.json`, and `report.json`; a comparison also writes `comparison.json`. The manifest records the raw corpus hash, per-document hashes, disjoint document indices, config, implementation and checkpoint hashes, step, training tokens seen, parameter count, and PyTorch version. Identical normalized line-documents are rejected before splitting; this is exact deduplication, not a near-duplicate detector. The 32-byte chunks reset attention context to BOS at every document and chunk boundary; each byte is scored once. `held_out.bits_per_byte` is the summed next-byte cross-entropy divided by held-out bytes and by ln(2). `perplexity_per_byte = 2 ** bits_per_byte`.
+
+Inspect a continuation from the saved run rather than an untrained model:
+
+```sh
+python3 -m capstone.generate --run artifacts/tiny-transformer --prompt a --max-new-bytes 8
+```
+
+The loader checks checkpoint bytes, configuration, corpus, resolved architecture and implementation before strict state-dictionary loading. Keep the training corpus available for this research-run check. Generation recomputes the prefix, emits only byte IDs, and ends at its fixed byte budget: there is no EOS token or inference cache. `bytes_hex` preserves raw output even when the display uses UTF-8 replacement characters. This capstone's 258 input IDs and 256 output classes differ from the PicoLLM API's 259-token release schema; it cannot be handed to that service without a separate adapter and contract. Source-hash changes deliberately invalidate older research checkpoints: start a fresh run after updating source, rather than changing its manifest to bypass the check.
 
 The example 40-step local run on PyTorch 2.9.1 gave 4.1141 held-out bits/byte across 270 bytes for one layer and 4.0879 for two layers. This is one seed, one tiny split, and a parameter-count-changing ablation: its 0.0262-bit difference is **not** a general architecture finding. Training loss and a real evaluation set would need many more independent documents and seeds. The n-gram baseline has a different context protocol; its score is not a matched-budget Transformer comparison.
 
