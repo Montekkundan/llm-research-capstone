@@ -39,6 +39,29 @@ The example 40-step local run on PyTorch 2.9.1 gave 4.1141 held-out bits/byte ac
 
 For a same-data seed study, set `dataset.split_seed` explicitly, for example `"dataset": {"path": "data/original_toy_corpus.txt", "train_fraction": 0.75, "split_seed": 7}`. Hold that value fixed while varying top-level `seed` and `run_id`; the run seed controls model initialization and minibatch sampling. Both schemas accept a nonnegative integer split seed, and manifests record its resolved value. Omitting it keeps the original behavior of splitting with the run seed. Tests verify identical document assignments and held-out target counts across two different initializations, then resume both for two updates. This is a reproducibility check, not evidence of a multi-seed architecture benefit.
 
+### Build corpus autocomplete and detect overfitting
+
+Build a tiny sentence autocompleter, then use held-out documents to check whether readable output generalizes. `configs/autocomplete.json` fixes the original corpus, seed, 64-byte context, and total budget of **400 updates**. Start in a fresh output directory. Pausing at 40 saves a checkpoint; `--resume` restores model and AdamW state and completes the remaining 360 updates under the same config.
+
+```sh
+python3 -m capstone.transformer_run --config configs/autocomplete.json --output-root runs/autocomplete-demo --stop-after 40
+cat runs/autocomplete-demo/autocomplete/report.json
+python3 -m capstone.generate --run runs/autocomplete-demo/autocomplete --prompt "attention " --max-new-bytes 41
+python3 -m capstone.transformer_run --config configs/autocomplete.json --output-root runs/autocomplete-demo --resume
+cat runs/autocomplete-demo/autocomplete/report.json
+python3 -m capstone.generate --run runs/autocomplete-demo/autocomplete --prompt "attention " --max-new-bytes 41
+python3 -m capstone.generate --run runs/autocomplete-demo/autocomplete --prompt "the model " --max-new-bytes 37
+```
+
+The verified CPU run on PyTorch 2.9.1 scored:
+
+| Updates | Training bits/byte | Held-out bits/byte |
+| ---: | ---: | ---: |
+| 40 | 3.9392 | 4.0576 |
+| 400 | 0.0906 | 10.7554 |
+
+At 400, `attention ` continues with `joins a query with stored keys and values`, exactly reproducing a training sentence. The held-out prefix `the model ` produces `aller sa  hairema t l r an ecel tue a` instead of its reference continuation. Readability improved through memorization while held-out loss worsened. The fixed 41- and 37-byte budgets use known reference lengths; generation has no EOS. This corpus-autocomplete lab demonstrates overfitting and checkpoint recovery on one tiny split, with no assistant or general language-quality claim. Repeatedly inspected held-out documents serve as validation; selecting a budget needs a separate untouched test set for a final generalization estimate.
+
 ## Swap model families without changing the trainer
 
 Clone `llm-model-atlas` next to this repository and install it into the same virtual environment:

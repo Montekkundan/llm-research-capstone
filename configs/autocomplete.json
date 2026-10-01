@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "run_id": "autocomplete",
+  "seed": 7,
+  "dataset": {"path": "data/original_toy_corpus.txt", "train_fraction": 0.75},
+  "architecture": {"family": "causal-byte-transformer", "width": 32, "heads": 2, "layers": 1, "context": 64},
+  "training": {"steps": 400, "batch_size": 8, "learning_rate": 0.003},
+  "evaluation": {"metric": "bits_per_byte"}
+}
