@@ -106,7 +106,7 @@ class TransformerExperimentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             execute(self.config_path, output_root=root_path, stop_after=2)
-            with self.assertRaises(FileExistsError):
+            with self.assertRaisesRegex(FileExistsError, "use --resume or another run_id"):
                 execute(self.config_path, output_root=root_path)
             changed = load_config(self.config_path)
             changed["training"]["learning_rate"] = 0.01
